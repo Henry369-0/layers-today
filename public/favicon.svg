@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" fill="#F2EAD9"/>
+  <rect x="5" y="5" width="54" height="54" rx="5" fill="none" stroke="#2B2B26" stroke-width="3"/>
+  <rect x="9" y="9" width="46" height="46" rx="3" fill="none" stroke="#2B2B26" stroke-width="1"/>
+  <text x="32" y="45" font-size="30" text-anchor="middle" fill="#B5482A" font-family="Noto Serif SC, Songti SC, SimSun, serif" font-weight="900">层</text>
+</svg>

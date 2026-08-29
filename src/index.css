@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f2ead9;
+  --color-ink: #2b2b26;
+  --color-brick: #b5482a;
+  --color-pine: #3f5c4e;
+  --color-mustard: #d9a441;
+  --font-song: "Noto Serif SC", "Songti SC", SimSun, serif;
+}
+
+html {
+  background: #f2ead9;
+}
+
+body {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-song);
+  /* 先渲染系统衬线体，字体到位后由浏览器热替换（font-display: swap） */
+}
+
+::selection {
+  background: rgba(181, 72, 42, 0.25);
+}
