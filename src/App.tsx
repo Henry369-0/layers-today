@@ -1,4 +1,4 @@
-import { useCallback, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
 import type { City, PosterData } from './types';
 import { fetchWeather } from './lib/weather';
@@ -22,6 +22,7 @@ interface State {
 
 type Action =
   | { type: 'load' }
+  | { type: 'cancel' }
   | { type: 'success'; data: PosterData }
   | { type: 'failure'; message: string; fallback: PosterData | null }
   | { type: 'show'; data: PosterData; stale?: boolean }
@@ -31,6 +32,8 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'load':
       return { ...state, status: 'loading', error: null, stale: false };
+    case 'cancel':
+      return { ...state, status: state.data ? 'done' : 'idle', error: null };
     case 'success':
       return { status: 'done', data: action.data, error: null, stale: false };
     case 'failure':
@@ -57,12 +60,19 @@ export default function App() {
   const [exporting, setExporting] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
   const lastCityRef = useRef<City | null>(null);
+  const weatherRequestRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => weatherRequestRef.current?.abort(), []);
 
   const selectCity = useCallback(async (city: City) => {
+    weatherRequestRef.current?.abort();
+    const controller = new AbortController();
+    weatherRequestRef.current = controller;
     lastCityRef.current = city;
     dispatch({ type: 'load' });
     try {
-      const weather = await fetchWeather(city.latitude, city.longitude);
+      const weather = await fetchWeather(city.latitude, city.longitude, controller.signal);
+      if (controller.signal.aborted) return;
       const result = calcLayers(
         weather.apparentTemperature,
         weather.windSpeed,
@@ -74,12 +84,27 @@ export default function App() {
       setHistory(addHistory(data));
       saveLastResult(data);
     } catch (e) {
+      if (controller.signal.aborted) return;
       dispatch({
         type: 'failure',
         message: e instanceof Error ? e.message : '网络开小差了',
         fallback: loadLastResult(),
       });
+    } finally {
+      if (weatherRequestRef.current === controller) weatherRequestRef.current = null;
     }
+  }, []);
+
+  const cancelQuery = useCallback(() => {
+    weatherRequestRef.current?.abort();
+    weatherRequestRef.current = null;
+    dispatch({ type: 'cancel' });
+  }, []);
+
+  const selectHistory = useCallback((entry: HistoryEntry) => {
+    weatherRequestRef.current?.abort();
+    weatherRequestRef.current = null;
+    dispatch({ type: 'show', data: entry });
   }, []);
 
   const retry = useCallback(() => {
@@ -153,8 +178,14 @@ export default function App() {
         )}
 
         {loading && (
-          <div className="mx-auto max-w-[540px] animate-pulse space-y-4" aria-label="加载中">
-            <div className="h-[720px] border-2 border-ink/30 bg-ink/5" />
+          <div className="mx-auto max-w-[540px] space-y-4" aria-label="加载中">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span aria-live="polite">正在查询天气…</span>
+              <button type="button" onClick={cancelQuery} className="border border-ink/50 bg-paper px-3 py-2 underline underline-offset-2">
+                取消查询
+              </button>
+            </div>
+            <div className="aspect-[3/4] animate-pulse border-2 border-ink/30 bg-ink/5" />
           </div>
         )}
 
@@ -206,7 +237,7 @@ export default function App() {
 
         <HistoryList
           items={history}
-          onSelect={(entry) => dispatch({ type: 'show', data: entry })}
+          onSelect={selectHistory}
           onClear={() => {
             clearHistory();
             setHistory([]);
