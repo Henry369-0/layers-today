@@ -3,12 +3,33 @@ import type { City, Weather } from '../types';
 const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 
+async function requestJson(url: string, label: string, signal?: AbortSignal): Promise<unknown> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const cancel = () => controller.abort();
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener('abort', cancel, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 10_000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`${label}失败（HTTP ${res.status}）`);
+    return await res.json();
+  } catch (error) {
+    if (timedOut) throw new Error(`${label}超时，请重试`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
+  }
+}
+
 /** 城市搜索（Open-Meteo Geocoding，免费无 Key，支持中文） */
 export async function searchCity(name: string, signal?: AbortSignal): Promise<City[]> {
   const url = `${GEO_URL}?name=${encodeURIComponent(name)}&count=5&language=zh&format=json`;
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`城市搜索失败（HTTP ${res.status}）`);
-  const data = await res.json();
+  const data = await requestJson(url, '城市搜索', signal) as { results?: City[] };
   // 可能无 results 字段 → 调用方提示"没找到这个城市"
   return (data.results ?? []) as City[];
 }
@@ -26,9 +47,16 @@ export async function fetchWeather(
       'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m',
     timezone: 'auto',
   });
-  const res = await fetch(`${FORECAST_URL}?${params}`, { signal });
-  if (!res.ok) throw new Error(`天气请求失败（HTTP ${res.status}）`);
-  const data = await res.json();
+  const data = await requestJson(`${FORECAST_URL}?${params}`, '天气查询', signal) as {
+    current: {
+      time: string;
+      temperature_2m: number;
+      apparent_temperature: number;
+      relative_humidity_2m: number;
+      weather_code: number;
+      wind_speed_10m: number;
+    };
+  };
   const c = data.current;
   return {
     date: String(c.time).slice(0, 10),

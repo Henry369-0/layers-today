@@ -12,26 +12,26 @@ type SearchStatus = 'idle' | 'loading' | 'done' | 'error';
 /** 城市搜索：300ms 防抖 + 下拉候选（省份/国家消歧义） */
 export default function CitySearch({ onSelect, disabled }: Props) {
   const [query, setQuery] = useState('');
+  const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
   const [results, setResults] = useState<City[]>([]);
   const [status, setStatus] = useState<SearchStatus>('idle');
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const q = query.trim();
-    if (!q) {
+    if (!q || disabled || query === selectedQuery) {
       setResults([]);
       setStatus('idle');
       setOpen(false);
       return;
     }
+    const ac = new AbortController();
+    setResults([]);
+    setOpen(false);
     setStatus('loading');
     const timer = setTimeout(async () => {
-      abortRef.current?.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
       try {
         const list = await searchCity(q, ac.signal);
         if (ac.signal.aborted) return;
@@ -46,8 +46,11 @@ export default function CitySearch({ onSelect, disabled }: Props) {
         setOpen(true);
       }
     }, 300);
-    return () => clearTimeout(timer);
-  }, [query]);
+    return () => {
+      clearTimeout(timer);
+      ac.abort();
+    };
+  }, [query, selectedQuery, disabled]);
 
   // 点击外部关闭下拉
   useEffect(() => {
@@ -61,6 +64,7 @@ export default function CitySearch({ onSelect, disabled }: Props) {
   const choose = (city: City) => {
     setOpen(false);
     setResults([]);
+    setSelectedQuery(city.name);
     setQuery(city.name);
     onSelect(city);
   };
@@ -105,7 +109,10 @@ export default function CitySearch({ onSelect, disabled }: Props) {
         </svg>
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setSelectedQuery(null);
+            setQuery(e.target.value);
+          }}
           onKeyDown={onKeyDown}
           onFocus={() => results.length > 0 && setOpen(true)}
           disabled={disabled}

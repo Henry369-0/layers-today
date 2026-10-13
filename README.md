@@ -13,6 +13,7 @@
 - **PNG 导出**：`pixelRatio: 2` 高清输出（2160×2880），导出前等待字体加载完成
 - **查询历史**：localStorage 持久化最近 20 条，点击回看
 - **兜底策略**：请求失败显示重试按钮，并回落展示上次成功结果（离线缓存）
+- **等待可退出**：城市搜索和天气查询最长等 10 秒；查询天气时可取消，清空或改输入会立即撤销旧搜索，旧结果不会重新弹出
 
 ## 算法：体感温度 → 层数
 
@@ -44,7 +45,7 @@
 | 样式 | Tailwind CSS v4 |
 | 天气 / 城市搜索 | [Open-Meteo](https://open-meteo.com/)（免费、无 Key、支持中文） |
 | 海报导出 | html-to-image |
-| 测试 | Vitest（54 个用例） |
+| 测试 | Vitest（61 个用例，含请求与组件回归） |
 | 存储 | localStorage |
 
 字体：Noto Serif SC（Google Fonts），回退栈 `"Noto Serif SC", "Songti SC", SimSun, serif`。先渲染系统衬线体，字体到位后热替换。
@@ -54,7 +55,7 @@
 ```bash
 npm install
 npm run dev       # 开发，http://localhost:5173
-npm test          # 运行 54 个单测
+npm test          # 运行 61 个回归测试
 npm run build     # 类型检查 + 生产构建
 npm run preview   # 预览生产构建
 ```
